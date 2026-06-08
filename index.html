@@ -69,6 +69,15 @@
         color: #666;
         font-size: 0.9rem;
       }
+      .timer {
+        font-size: 0.9rem;
+        color: #666;
+        font-variant-numeric: tabular-nums;
+      }
+      .timer.urgent {
+        color: #dc2626;
+        font-weight: 600;
+      }
       .result-line {
         padding: 8px 0;
         border-bottom: 1px solid #eee;
@@ -128,8 +137,38 @@
       // ---- 2. THE STATE ----
       let currentIndex = 0; // which question we're on
       let userAnswers = {}; // { questionId: chosenOptionId }
-      let revealed = false; // NEW: has the current question been answered & revealed?
+      let revealed = false; // has the current question been answered & revealed?
       let finished = false; // have we reached the results screen?
+
+      const TIME_LIMIT = 15;
+      let timeLeft = TIME_LIMIT;
+      let timerInterval = null;
+
+      function startTimer() {
+        clearInterval(timerInterval);
+        timeLeft = TIME_LIMIT;
+        updateTimerDisplay();
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          updateTimerDisplay();
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            submitAnswer();
+          }
+        }, 1000);
+      }
+
+      function stopTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      function updateTimerDisplay() {
+        const el = document.getElementById("timer");
+        if (!el) return;
+        el.textContent = `${timeLeft}s`;
+        el.classList.toggle("urgent", timeLeft <= 5);
+      }
 
       // ---- 3. THE RENDERER ----
       const app = document.getElementById("app");
@@ -170,6 +209,7 @@
         <p class="progress">
           Question ${currentIndex + 1} of ${quiz.questions.length}
           &nbsp;·&nbsp; Score so far: ${correct}/${answered} (${pct}%)
+          ${!revealed ? '&nbsp;·&nbsp; <span id="timer" class="timer"></span>' : ""}
         </p>
         <p class="question-text">${question.text}</p>
         <div id="options"></div>
@@ -209,12 +249,14 @@
           <button class="action" id="submit" ${chosen ? "" : "disabled"}>Submit</button>
         `;
           document.getElementById("submit").onclick = submitAnswer;
+          startTimer();
         } else {
           // Feedback line + Next/Finish.
           const wasCorrect = chosen === question.correctOptionId;
+          const feedback = wasCorrect ? "✓ Correct!" : chosen ? "✗ Not quite." : "✗ Time's up!";
           footer.innerHTML = `
           <p class="${wasCorrect ? "correct" : "wrong"}">
-            ${wasCorrect ? "✓ Correct!" : "✗ Not quite."}
+            ${feedback}
           </p>
           <button class="action" id="next">${isLast ? "Finish" : "Next"}</button>
         `;
@@ -270,7 +312,8 @@
       }
 
       function submitAnswer() {
-        revealed = true; // flip into feedback mode for this question
+        stopTimer();
+        revealed = true;
         render();
       }
 
@@ -285,6 +328,7 @@
       }
 
       function restart() {
+        stopTimer();
         currentIndex = 0;
         userAnswers = {};
         revealed = false;
