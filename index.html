@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quiz</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #222;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      .question-text {
+        font-size: 1.2rem;
+        margin: 20px 0;
+      }
+      .option {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 1rem;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+      }
+      .option:hover {
+        border-color: #888;
+      }
+      .option.selected {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      .option.correct-option {
+        border-color: #16a34a;
+        background: #f0fdf4;
+      }
+      .option.wrong-option {
+        border-color: #dc2626;
+        background: #fef2f2;
+      }
+      .option:disabled {
+        cursor: default;
+      }
+
+      .footer {
+        margin-top: 24px;
+      }
+      button.action {
+        padding: 10px 20px;
+        font-size: 1rem;
+        border: none;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #fff;
+        cursor: pointer;
+      }
+      button.action:disabled {
+        background: #aaa;
+        cursor: not-allowed;
+      }
+      .progress {
+        color: #666;
+        font-size: 0.9rem;
+      }
+      .result-line {
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+      }
+      .correct {
+        color: #16a34a;
+      }
+      .wrong {
+        color: #dc2626;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      // ---- 1. THE DATA ----
+      const quiz = {
+        title: "General Knowledge Quiz",
+        questions: [
+          {
+            id: "q1",
+            text: "What is the capital of France?",
+            options: [
+              { id: "a", text: "Paris" },
+              { id: "b", text: "London" },
+              { id: "c", text: "Berlin" },
+              { id: "d", text: "Madrid" },
+            ],
+            correctOptionId: "a",
+          },
+          {
+            id: "q2",
+            text: "Which planet is closest to the sun?",
+            options: [
+              { id: "a", text: "Venus" },
+              { id: "b", text: "Mercury" },
+              { id: "c", text: "Earth" },
+              { id: "d", text: "Mars" },
+            ],
+            correctOptionId: "b",
+          },
+          {
+            id: "q3",
+            text: "How many continents are there?",
+            options: [
+              { id: "a", text: "Five" },
+              { id: "b", text: "Six" },
+              { id: "c", text: "Seven" },
+              { id: "d", text: "Eight" },
+            ],
+            correctOptionId: "c",
+          },
+        ],
+      };
+
+      // ---- 2. THE STATE ----
+      let currentIndex = 0; // which question we're on
+      let userAnswers = {}; // { questionId: chosenOptionId }
+      let revealed = false; // NEW: has the current question been answered & revealed?
+      let finished = false; // have we reached the results screen?
+
+      // ---- 3. THE RENDERER ----
+      const app = document.getElementById("app");
+
+      function render() {
+        if (finished) {
+          renderResults();
+        } else {
+          renderQuestion();
+        }
+      }
+
+      // Counts how many answered-so-far questions were correct, and how many answered.
+      function runningTally() {
+        let correct = 0;
+        let answered = 0;
+        quiz.questions.forEach((q) => {
+          const chosen = userAnswers[q.id];
+          if (chosen !== undefined) {
+            answered++;
+            if (chosen === q.correctOptionId) correct++;
+          }
+        });
+        return { correct, answered };
+      }
+
+      function renderQuestion() {
+        const question = quiz.questions[currentIndex];
+        const chosen = userAnswers[question.id];
+        const isLast = currentIndex === quiz.questions.length - 1;
+
+        // Running percentage based on what's been answered so far.
+        const { correct, answered } = runningTally();
+        const pct = answered === 0 ? 0 : Math.round((correct / answered) * 100);
+
+        app.innerHTML = `
+        <h1>${quiz.title}</h1>
+        <p class="progress">
+          Question ${currentIndex + 1} of ${quiz.questions.length}
+          &nbsp;·&nbsp; Score so far: ${correct}/${answered} (${pct}%)
+        </p>
+        <p class="question-text">${question.text}</p>
+        <div id="options"></div>
+        <div class="footer" id="footer"></div>
+      `;
+
+        // Build the option buttons
+        const optionsDiv = document.getElementById("options");
+        question.options.forEach((option) => {
+          const btn = document.createElement("button");
+          let cls = "option";
+
+          if (revealed) {
+            // After answering: color the correct one green, and the chosen-wrong one red.
+            if (option.id === question.correctOptionId)
+              cls += " correct-option";
+            else if (option.id === chosen) cls += " wrong-option";
+            btn.disabled = true; // lock choices once revealed
+          } else if (chosen === option.id) {
+            cls += " selected";
+          }
+
+          btn.id = `option-${option.id}`;
+          btn.className = cls;
+          btn.textContent = option.text;
+          if (!revealed) {
+            btn.onclick = () => selectAnswer(question.id, option.id);
+          }
+          optionsDiv.appendChild(btn);
+        });
+
+        // Footer changes depending on whether we've revealed feedback yet.
+        const footer = document.getElementById("footer");
+        if (!revealed) {
+          // Submit button: locked until an option is chosen.
+          footer.innerHTML = `
+          <button class="action" id="submit" ${chosen ? "" : "disabled"}>Submit</button>
+        `;
+          document.getElementById("submit").onclick = submitAnswer;
+        } else {
+          // Feedback line + Next/Finish.
+          const wasCorrect = chosen === question.correctOptionId;
+          footer.innerHTML = `
+          <p class="${wasCorrect ? "correct" : "wrong"}">
+            ${wasCorrect ? "✓ Correct!" : "✗ Not quite."}
+          </p>
+          <button class="action" id="next">${isLast ? "Finish" : "Next"}</button>
+        `;
+          document.getElementById("next").onclick = goNext;
+        }
+      }
+
+      function renderResults() {
+        const { correct } = runningTally();
+        const total = quiz.questions.length;
+        const pct = Math.round((correct / total) * 100);
+
+        let lines = "";
+        quiz.questions.forEach((question) => {
+          const chosenId = userAnswers[question.id];
+          const isCorrect = chosenId === question.correctOptionId;
+          const chosenText =
+            question.options.find((o) => o.id === chosenId)?.text ??
+            "(no answer)";
+          const correctText = question.options.find(
+            (o) => o.id === question.correctOptionId,
+          ).text;
+
+          lines += `
+          <div class="result-line">
+            <strong>${question.text}</strong><br />
+            Your answer: <span class="${isCorrect ? "correct" : "wrong"}">${chosenText}</span>
+            ${isCorrect ? "" : `<br />Correct answer: <span class="correct">${correctText}</span>`}
+          </div>
+        `;
+        });
+
+        app.innerHTML = `
+        <h1>Results</h1>
+        <p class="question-text">You scored ${correct} out of ${total} (${pct}%).</p>
+        ${lines}
+        <div class="footer">
+          <button class="action" id="restart">Restart</button>
+        </div>
+      `;
+        document.getElementById("restart").onclick = restart;
+      }
+
+      // ---- 4. THE ACTIONS ----
+      function selectAnswer(questionId, optionId) {
+        const prev = userAnswers[questionId];
+        if (prev) {
+          document.getElementById(`option-${prev}`)?.classList.remove("selected");
+        }
+        userAnswers[questionId] = optionId;
+        document.getElementById(`option-${optionId}`)?.classList.add("selected");
+        document.getElementById("submit").disabled = false;
+      }
+
+      function submitAnswer() {
+        revealed = true; // flip into feedback mode for this question
+        render();
+      }
+
+      function goNext() {
+        revealed = false; // reset for the next question
+        if (currentIndex === quiz.questions.length - 1) {
+          finished = true;
+        } else {
+          currentIndex++;
+        }
+        render();
+      }
+
+      function restart() {
+        currentIndex = 0;
+        userAnswers = {};
+        revealed = false;
+        finished = false;
+        render();
+      }
+
+      // ---- 5. START ----
+      render();
+    </script>
+  </body>
+</html>
