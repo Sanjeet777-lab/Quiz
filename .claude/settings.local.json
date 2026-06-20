@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm list *)",
+      "Bash(python3 -c \"import playwright; print\\('ok'\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 -m playwright install chromium --quiet)",
+      "Bash(python3 -m playwright install chromium)",
+      "Bash(python3 *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(gh repo *)",
+      "Bash(brew install *)",
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(gh auth *)"
+    ]
+  }
+}
