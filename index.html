@@ -249,7 +249,6 @@
           <button class="action" id="submit" ${chosen ? "" : "disabled"}>Submit</button>
         `;
           document.getElementById("submit").onclick = submitAnswer;
-          startTimer();
         } else {
           // Feedback line + Next/Finish.
           const wasCorrect = chosen === question.correctOptionId;
@@ -302,13 +301,8 @@
 
       // ---- 4. THE ACTIONS ----
       function selectAnswer(questionId, optionId) {
-        const prev = userAnswers[questionId];
-        if (prev) {
-          document.getElementById(`option-${prev}`)?.classList.remove("selected");
-        }
         userAnswers[questionId] = optionId;
-        document.getElementById(`option-${optionId}`)?.classList.add("selected");
-        document.getElementById("submit").disabled = false;
+        render();
       }
 
       function submitAnswer() {
@@ -318,13 +312,14 @@
       }
 
       function goNext() {
-        revealed = false; // reset for the next question
+        revealed = false;
         if (currentIndex === quiz.questions.length - 1) {
           finished = true;
         } else {
           currentIndex++;
         }
         render();
+        if (!finished) startTimer();
       }
 
       function restart() {
@@ -334,10 +329,12 @@
         revealed = false;
         finished = false;
         render();
+        startTimer();
       }
 
       // ---- 5. START ----
       render();
+      startTimer();
     </script>
   </body>
 </html>
