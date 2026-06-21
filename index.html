@@ -135,6 +135,7 @@
       };
 
       // ---- 2. THE STATE ----
+      let started = false;  // has the user passed the start screen?
       let currentIndex = 0; // which question we're on
       let userAnswers = {}; // { questionId: chosenOptionId }
       let revealed = false; // has the current question been answered & revealed?
@@ -174,11 +175,24 @@
       const app = document.getElementById("app");
 
       function render() {
-        if (finished) {
+        if (!started) {
+          renderStart();
+        } else if (finished) {
           renderResults();
         } else {
           renderQuestion();
         }
+      }
+
+      function renderStart() {
+        app.innerHTML = `
+          <h1>${quiz.title}</h1>
+          <p class="question-text">Answer each question before the timer runs out.</p>
+          <div class="footer">
+            <button class="action" id="begin">Begin Quiz</button>
+          </div>
+        `;
+        document.getElementById("begin").onclick = beginQuiz;
       }
 
       // Counts how many answered-so-far questions were correct, and how many answered.
@@ -322,19 +336,24 @@
         if (!finished) startTimer();
       }
 
+      function beginQuiz() {
+        started = true;
+        render();
+        startTimer();
+      }
+
       function restart() {
         stopTimer();
+        started = false;
         currentIndex = 0;
         userAnswers = {};
         revealed = false;
         finished = false;
         render();
-        startTimer();
       }
 
       // ---- 5. START ----
       render();
-      startTimer();
     </script>
   </body>
 </html>
